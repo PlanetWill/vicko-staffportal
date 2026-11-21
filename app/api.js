@@ -2,22 +2,24 @@ const base = process.env.NEXT_PUBLIC_PORTAL_API_BASE?.trim().replace(/\/$/, "");
 export const demo = !base;
 export const sheetUrl = process.env.NEXT_PUBLIC_STAFF_SHEET_URL;
 const games = [
-  ["main", "Main Experience", "violet"],
-  ["training", "Training Center", "blue"],
-  ["events", "Events Hub", "pink"],
-  ["test", "Test Environment", "green"],
+  ["emergency-usa", "Emergency USA: California", "violet"],
+  ["emergency-london", "Emergency London: Camden", "blue"],
+  ["patrol-london", "Patrol London: UKRP Callouts", "pink"],
+  ["staffordshire", "Staffordshire, West Midlands", "green"],
+  ["california-whitelisted", "California City, Whitelisted", "blue"],
 ].map(([id, name, color]) => ({ id, name, color }));
 const servers = [
-  ["main", "68be94fc-a6a0-4b26-9bb7-1a69eb2de052", 32, 40, 48, 18720],
-  ["main", "2cf79f60-97ed-47c0-871b-64f427578b31", 24, 40, 61, 9840],
-  ["main", "74ab9e51-5aed-4831-bf8b-70c463d81172", 18, 40, 73, 2820],
-  ["training", "5d518fe0-13c9-4898-b28b-235fa6392470", 12, 30, 56, 7560],
-  ["events", "89f96e2c-3373-42ae-993d-bd684d7ee1dd", 8, 50, 92, 38940],
+  ["staffordshire", "c73962af-4172-4f68-9d24-51de763eb463", 16, 40, 66, 11220],
+  ["emergency-usa", "68be94fc-a6a0-4b26-9bb7-1a69eb2de052", 32, 40, 48, 18720],
+  ["emergency-usa", "2cf79f60-97ed-47c0-871b-64f427578b31", 24, 40, 61, 9840],
+  ["emergency-usa", "74ab9e51-5aed-4831-bf8b-70c463d81172", 18, 40, 73, 2820],
+  ["emergency-london", "5d518fe0-13c9-4898-b28b-235fa6392470", 12, 30, 56, 7560],
+  ["patrol-london", "89f96e2c-3373-42ae-993d-bd684d7ee1dd", 8, 50, 92, 38940],
 ].map(([gameId, id, players, capacity, pingMs, uptimeSeconds]) => ({ gameId, id, players, capacity, pingMs, uptimeSeconds }));
 const users = [
   {
     id: "100001", username: "DemoBuilder", displayName: "Demo Builder", presence: "in_game",
-    gameId: "main", serverId: servers[0].id, playtimeSeconds: 173040,
+    gameId: "emergency-usa", serverId: servers[0].id, playtimeSeconds: 173040,
     moderationHistory: [
       { id: "demo-kick", action: "kick", reason: "Repeated disruption after a warning.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:18:00Z" },
       { id: "demo-warning", action: "warn", reason: "Disruptive chat during an event.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:05:00Z" },
