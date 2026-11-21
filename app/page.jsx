@@ -161,7 +161,7 @@ export default function Portal() {
           {searchError && <p role="alert" className="error">{searchError}</p>}
           {result === null && <p className="muted mt-5" role="status">No matching Roblox account found.</p>}
         </section>}
-        {profile && <PlayerProfile player={profile} games={games} historyError={historyError}
+        {profile && <PlayerProfile key={profile.id} player={profile} games={games} historyError={historyError}
           onAction={kind => setAction({ type: "moderate", kind, user: profile })}
           onRemove={entry => setAction({ type: "remove", entry, user: profile })}/>}
         {tab === "registry" && <section className="panel content-panel">{sheetUrl ? <><a className="text-link" href={sheetUrl} target="_blank" rel="noreferrer">Open in Google Sheets</a><iframe className="sheet" title="Staff Registry Google Sheet" src={sheetUrl}/></> : <><h2>Google Sheet setup</h2><p className="muted mt-2">Set the Staff Registry sheet URL to display your roster here.</p></>}</section>}
@@ -173,12 +173,16 @@ export default function Portal() {
 }
 
 function PlayerProfile({ player, games, historyError, onAction, onRemove }) {
+  const [gameFilter, setGameFilter] = useState("");
   const inGame = player.presence === "in_game";
   const joinUrl = inGame ? safeJoinUrl(player.joinUrl) : null;
   const status = { in_game: "In game", offline: "Offline", online: "Online" }[player.presence] ?? "Status unavailable";
   const history = Array.isArray(player.moderationHistory)
     ? [...player.moderationHistory].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     : null;
+  const filteredHistory = history?.filter(entry =>
+    !gameFilter || entry.scope === "global" || entry.gameId === gameFilter
+  );
   return <div className="grid gap-4">
     <div className="grid gap-3 md:grid-cols-2">
       <section className="panel content-panel">
@@ -190,11 +194,20 @@ function PlayerProfile({ player, games, historyError, onAction, onRemove }) {
     <section className="panel content-panel"><h2>Moderation actions</h2><div className="mt-3 flex flex-wrap gap-2">
       {Object.entries(actionLabels).map(([kind, label]) => <button key={kind} className={kind === "ban" ? "button danger" : "button"} disabled={kind === "kick" && !inGame} onClick={() => onAction(kind)}>{label}</button>)}
     </div></section>
-    <section className="panel"><div className="section-head"><h2>Moderation history</h2></div>
+    <section className="panel"><div className="section-head">
+      <h2>Moderation history</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="!m-0" htmlFor="history-game">Filter by game</label>
+        <select className="!w-auto max-w-full" id="history-game" value={gameFilter} onChange={event => setGameFilter(event.target.value)}>
+          <option value="">All games</option>
+          {games.map(game => <option key={game.id} value={game.id}>{game.name}</option>)}
+        </select>
+      </div>
+    </div>
       {historyError && <p className="error mx-4" role="alert">{historyError}</p>}
-      {history?.length ? <div className="overflow-x-auto"><table><thead><tr><th>Action</th><th>Reason</th><th>Moderator</th><th>Date</th><th className="text-right">Manage</th></tr></thead><tbody>
-        {history.map(entry => <tr key={entry.id}><td>{moderationLabels[entry.action] ?? entry.action}</td><td className="min-w-48 whitespace-normal">{entry.reason || "—"}</td><td>{entry.moderator || "—"}</td><td>{Number.isFinite(Date.parse(entry.createdAt)) ? new Date(entry.createdAt).toLocaleString() : "—"}</td><td className="text-right"><button className="button compact" onClick={() => onRemove(entry)} aria-label={"Remove " + (moderationLabels[entry.action] ?? entry.action).toLowerCase() + " record"}>Remove</button></td></tr>)}
-      </tbody></table></div> : <p className="muted px-5 pb-5">{history ? "No moderation actions recorded." : "Moderation history unavailable."}</p>}
+      {filteredHistory?.length ? <div className="overflow-x-auto"><table><thead><tr><th>Action</th><th>Game</th><th>Reason</th><th>Moderator</th><th>Date</th><th className="text-right">Manage</th></tr></thead><tbody>
+        {filteredHistory.map(entry => <tr key={entry.id}><td>{moderationLabels[entry.action] ?? entry.action}</td><td>{entry.scope === "global" ? "Global" : games.find(game => game.id === entry.gameId)?.name ?? entry.gameName ?? "Unknown game"}</td><td className="min-w-48 whitespace-normal">{entry.reason || "—"}</td><td>{entry.moderator || "—"}</td><td>{Number.isFinite(Date.parse(entry.createdAt)) ? new Date(entry.createdAt).toLocaleString() : "—"}</td><td className="text-right"><button className="button compact" onClick={() => onRemove(entry)} aria-label={"Remove " + (moderationLabels[entry.action] ?? entry.action).toLowerCase() + " record"}>Remove</button></td></tr>)}
+      </tbody></table></div> : <p className="muted px-5 pb-5">{!history ? "Moderation history unavailable." : gameFilter && history.length ? "No moderation actions for this game." : "No moderation actions recorded."}</p>}
     </section>
   </div>;
 }
