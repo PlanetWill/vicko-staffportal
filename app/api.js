@@ -21,8 +21,8 @@ const users = [
     id: "100001", username: "DemoBuilder", displayName: "Demo Builder", presence: "in_game",
     gameId: "emergency-usa", serverId: "68be94fc-a6a0-4b26-9bb7-1a69eb2de052", playtimeSeconds: 173040,
     moderationHistory: [
-      { id: "demo-kick", action: "kick", reason: "Repeated disruption after a warning.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:18:00Z" },
-      { id: "demo-warning", action: "warn", reason: "Disruptive chat during an event.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:05:00Z" },
+      { id: "demo-kick", action: "kick", scope: "global", reason: "Repeated disruption after a warning.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:18:00Z" },
+      { id: "demo-warning", action: "warn", gameId: "patrol-london", reason: "Disruptive chat during an event.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:05:00Z" },
     ],
   },
   { id: "100002", username: "DemoScout", displayName: "Demo Scout", presence: "offline", playtimeSeconds: 44880, moderationHistory: [] },
@@ -55,7 +55,7 @@ export const api = {
   async moderate(payload) {
     if (!demo) return request("/moderation", payload);
     const { userId, action, reason } = payload;
-    const entry = { id: crypto.randomUUID(), action, reason, moderator: "Demo staff", createdAt: new Date().toISOString() };
+    const entry = { id: crypto.randomUUID(), action, scope: "global", reason, moderator: "Demo staff", createdAt: new Date().toISOString() };
     demoActions.set(userId, [entry, ...(demoActions.get(userId) ?? [])]);
   },
   async removeHistory(payload) {
