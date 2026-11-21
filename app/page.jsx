@@ -133,7 +133,7 @@ export default function Portal() {
             {[[Server, "Active servers", servers.length], [Users, "Players online", totalPlayers], [Activity, "Average ping", latency]].map(([Icon, label, value]) => <section className="panel stat" key={label}><span><Icon size={17}/>{label}</span><strong>{data ? value : "—"}</strong></section>)}
           </div>
           {overviewError && <p className="error" role="alert">{overviewError}</p>}
-          <section className="game-section"><h2>Experiences</h2><div className="grid grid-cols-1 gap-3 min-[500px]:grid-cols-2 xl:grid-cols-4">
+          <section className="game-section"><h2>Experiences</h2><div className="grid grid-cols-1 gap-3 min-[500px]:grid-cols-2 2xl:grid-cols-5">
             {games.map(item => {
               const count = servers.filter(server => server.gameId === item.id);
               return <button key={item.id} aria-pressed={current?.id === item.id} className={current?.id === item.id ? "game active" : "game"} onClick={() => setGame(item.id)}>
