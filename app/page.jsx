@@ -1,15 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Activity, CalendarDays, Check, Clipboard, Clock, Gamepad2, Megaphone, RefreshCw, Search, Server, Shield, Users, X } from "lucide-react";
+import { Activity, CalendarDays, Check, Clipboard, Clock, ListChecks, Gamepad2, Megaphone, RefreshCw, Search, Server, Shield, Users, X } from "lucide-react";
 import { api, demo, safeJoinUrl, sheetUrl } from "./api";
 
 const tabs = [
   ["servers", "Servers", Server], ["players", "Player lookup", Search],
-  ["registry", "Staff Registry", Users], ["loa", "Leaves of Absence", CalendarDays],
+  ["audit", "Audit Log", ListChecks], ["registry", "Staff Registry", Users], ["loa", "Leaves of Absence", CalendarDays],
 ];
 const headings = {
   servers: ["Server overview", "Monitor active Roblox instances and broadcast announcements."],
   players: ["Player lookup", "Find a Roblox account, check its in-game status, and take moderation actions."],
+  audit: ["Audit Log", "Review staff commands and their recorded outcomes."],
   registry: ["Staff Registry", "View the staff roster from Google Sheets."],
   loa: ["Leaves of Absence", "Leave requests are coming in a future release."],
 };
@@ -115,15 +116,15 @@ export default function Portal() {
       <div className="brand"><span className="brand-icon"><Shield size={23}/></span><div>Staff Portal<small>Community Operations</small></div></div>
       <nav aria-label="Staff tools">
         <p>REMOTE MANAGEMENT</p>
-        {tabs.map(([id, label, Icon], index) => <div key={id}>
-          {index === 2 && <p>STAFF TOOLS</p>}
+        {tabs.map(([id, label, Icon]) => <div key={id}>
+          {id === "registry" && <p>STAFF TOOLS</p>}
           <button aria-current={tab === id ? "page" : undefined} className={tab === id ? "nav-item selected" : "nav-item"} onClick={() => { setTab(id); setNotice(""); }}><Icon size={18}/>{label}</button>
         </div>)}
       </nav>
       <div className="sidebar-footer"><span className={demo ? "dot demo" : "dot"}/>{demo ? "Demo workspace" : "API configured"}</div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><span>{tab === "servers" || tab === "players" ? "Remote Management" : "Staff Tools"}</span><span className="divider">/</span><strong>{profile ? "Player profile" : tabs.find(item => item[0] === tab)[1]}</strong></header>
+      <header className="topbar"><span>{tab === "servers" || tab === "players" || tab === "audit" ? "Remote Management" : "Staff Tools"}</span><span className="divider">/</span><strong>{profile ? "Player profile" : tabs.find(item => item[0] === tab)[1]}</strong></header>
       <main className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-9 lg:px-11 lg:py-10">
         <div className="page-heading"><div><h1>{title}</h1><p>{description}</p></div>
           {tab === "servers" && <div className="flex flex-wrap gap-2"><button className="button" disabled={loading} onClick={reload}><RefreshCw size={16} className={loading ? "animate-spin" : ""}/>Refresh</button><button className="button primary" onClick={() => setAction({ type: "announce", scope: "all" })}><Megaphone size={17}/>Announcement</button></div>}
@@ -174,6 +175,7 @@ export default function Portal() {
         {profile && <PlayerProfile key={profile.id} player={profile} games={games} historyError={historyError}
           onAction={kind => setAction({ type: "moderate", kind, user: profile })}
           onRemove={entry => setAction({ type: "remove", entry, user: profile })}/>}
+        {tab === "audit" && <AuditLog games={games}/>}
         {tab === "registry" && <section className="panel content-panel">{sheetUrl ? <><a className="text-link" href={sheetUrl} target="_blank" rel="noreferrer">Open in Google Sheets</a><iframe className="sheet" title="Staff Registry Google Sheet" src={sheetUrl}/></> : <><h2>Google Sheet setup</h2><p className="muted mt-2">Set the Staff Registry sheet URL to display your roster here.</p></>}</section>}
         {tab === "loa" && <section className="panel content-panel"><CalendarDays size={26} className="muted mb-3"/><h2>Coming soon</h2></section>}
       </main>
@@ -286,4 +288,58 @@ function ActionDialog({ action, games, servers, onClose, onSuccess }) {
       <div className="flex justify-end gap-2 mt-5"><button type="button" className="button" disabled={pending} onClick={onClose}>Cancel</button><button className={managingServer || removing || action.kind === "ban" ? "button danger" : "button primary"} disabled={pending || (!managingServer && !content.trim())}>{pending ? "Submitting…" : title}</button></div>
     </form>
   </dialog>;
+}
+
+const auditLabels = {
+  ...moderationLabels, ...serverActionLabels, announce: "Announcement", remove_history: "Remove history entry",
+};
+const auditStatuses = { completed: "Completed", accepted: "Accepted", rejected: "Rejected", failed: "Failed" };
+
+function AuditLog({ games }) {
+  const [entries, setEntries] = useState(null);
+  const [error, setError] = useState("");
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api.audit(controller.signal).then(value => {
+      if (!controller.signal.aborted) setEntries(value);
+    }).catch(failure => {
+      if (!controller.signal.aborted) setError(failure.message);
+    });
+    return () => controller.abort();
+  }, [refresh]);
+
+  return <section className="panel">
+    <div className="section-head">
+      <p>{demo ? "Demo entries reset when you reload the page." : "Commands are recorded by the staff backend."}</p>
+      <button className="button" onClick={() => { setEntries(null); setError(""); setRefresh(value => value + 1); }}>
+        <RefreshCw size={16}/>Refresh
+      </button>
+    </div>
+    {error ? <p className="error mx-4" role="alert">{error}</p> : entries?.length ? (
+      <div className="overflow-x-auto">
+        <table>
+          <thead><tr><th>Time</th><th>Staff member</th><th>Command</th><th>Target</th><th>Details</th><th>Outcome</th></tr></thead>
+          <tbody>{entries.map(entry => {
+            const target = entry.target ?? {};
+            const game = games.find(item => item.id === target.gameId)?.name ?? target.gameId;
+            return <tr key={entry.id}>
+              <td>{Number.isFinite(Date.parse(entry.createdAt)) ? new Date(entry.createdAt).toLocaleString() : "—"}</td>
+              <td>{entry.actor?.displayName || entry.actor?.discordId || "Unknown staff member"}
+                {entry.actor?.displayName && entry.actor.discordId && <code className="block">{entry.actor.discordId}</code>}
+              </td>
+              <td>{auditLabels[entry.action] ?? entry.action}</td>
+              <td>{target.scope === "all" ? "All games" : game || (target.userId ? "Roblox user " + target.userId : "—")}
+                {target.serverId && <code className="block">{target.serverId}</code>}
+                {target.entryId && <code className="block">Record {target.entryId}</code>}
+              </td>
+              <td className="min-w-32 whitespace-normal break-words">{entry.details || "—"}</td>
+              <td>{auditStatuses[entry.status] ?? entry.status}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    ) : <p className="muted px-5 pb-5" role="status">{entries ? "No commands recorded yet." : "Loading audit log…"}</p>}
+  </section>;
 }

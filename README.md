@@ -23,6 +23,7 @@ The routes and payloads below are a proposed interface. Map them to your actual 
 | --- | --- |
 | `GET /overview` | `{ games: [{ id, name, color? }], servers: [{ id, gameId, players, capacity, pingMs, uptimeSeconds? }] }`. Use the Roblox job ID for the server ID and `null` if ping is unavailable. Uptime is the age of the instance when the overview is fetched. Supply the five actual games here. |
 | `GET /users/lookup?query=...` | `{ id, username, displayName, presence, gameId?, serverId?, joinUrl?, playtimeSeconds?, moderationHistory? }` or JSON `null` for no match. Use `in_game`, `online`, `offline`, or `unknown` for presence. Supply an HTTPS Roblox link for the exact joinable instance. Playtime is the total across community games. |
+| `GET /audit` | Newest-first array of entries with `{ id, createdAt, actor: { discordId, displayName }, action, target: { scope?, gameId?, serverId?, userId?, entryId? }, details?, status }`. This endpoint requires staff audit access. |
 | `POST /announcements` | `{ scope, message, gameId?, serverId? }`. Scope is `all`, `game`, or `server`. Single-server announcements include both IDs. |
 | `POST /servers/actions` | `{ action, gameId, serverId }`. Use `restart` to replace the specified instance or `shutdown` to close it. The backend authorizes the staff member and verifies that the Roblox job ID belongs to the requested game. The overview refreshes after the command is accepted. |
 | `POST /moderation` | `{ action, userId, reason }` with `warn`, `kick`, or `ban`. |
@@ -38,3 +39,9 @@ Set `NEXT_PUBLIC_STAFF_SHEET_URL` to your embeddable Google Sheets view URL, for
 
 Leaves of Absence is a placeholder.
 
+
+## Command audit logging
+
+Record announcements, warns, kicks, bans, history removals, restarts, and shutdowns on the backend for every command attempt. Derive the actor’s Discord user ID from the authenticated session once sign-in is implemented. Keep that stable ID alongside a display name snapshot and use server-generated timestamps. Do not trust actor fields supplied by the browser.
+
+Use action names `announce`, `warn`, `kick`, `ban`, `remove_history`, `restart`, and `shutdown`. Use outcomes `accepted`, `completed`, `rejected`, or `failed`. Reserve `completed` for confirmed execution. Keep audit entries even when a moderation history record is removed. The demo records commands locally for the current page session.

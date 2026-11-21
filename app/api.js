@@ -41,7 +41,7 @@ async function request(path, payload, signal) {
   if (payload) return;
   return response.json();
 }
-export const api = {
+const portal = {
   overview: (signal) => demo ? Promise.resolve({ games, servers }) : request("/overview", null, signal),
   async lookup(query, signal) {
     if (!demo) return request("/users/lookup?" + new URLSearchParams({ query }), null, signal);
@@ -92,3 +92,40 @@ export function safeJoinUrl(value) {
   } catch {}
   return null;
 }
+
+const demoAudit = [];
+
+function auditCommand(action, command) {
+  return async payload => {
+    if (!demo) return command(payload);
+
+    let status = "completed";
+    try {
+      return await command(payload);
+    } catch (error) {
+      status = "failed";
+      throw error;
+    } finally {
+      const { gameId, serverId, userId, scope, entryId, message, reason } = payload;
+      demoAudit.unshift({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        actor: { displayName: "Demo staff" },
+        action: typeof action === "function" ? action(payload) : action,
+        target: { gameId, serverId, userId, scope, entryId },
+        details: message ?? reason,
+        status,
+      });
+    }
+  };
+}
+
+export const api = {
+  overview: portal.overview,
+  lookup: portal.lookup,
+  audit: (signal) => demo ? Promise.resolve([...demoAudit]) : request("/audit", null, signal),
+  announce: auditCommand("announce", portal.announce),
+  manageServer: auditCommand(payload => payload.action, portal.manageServer),
+  moderate: auditCommand(payload => payload.action, portal.moderate),
+  removeHistory: auditCommand("remove_history", portal.removeHistory),
+};
