@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(portal)/layout,_N_T_/(portal)/leaves/layout,_N_T_/(portal)/leaves/page,_N_T_/leaves"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KHBvcnRhbCk/leaves/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/5b94f7fb8171ec3450d5765964617d730a87562e830ffa91d21c29fa319b3323/$/leaves",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/(portal)/leaves/page"
+    },
+    "isFallback": false
+  }
+}

@@ -1,0 +1,5 @@
+export default function PortalLoading() {
+  return <div className="route-loading" role="status" aria-label="Loading page">
+    <span/><span/><span/>
+  </div>;
+}

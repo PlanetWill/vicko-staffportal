@@ -93,7 +93,29 @@ export function safeJoinUrl(value) {
   return null;
 }
 
-const demoAudit = [];
+const demoAudit = [
+  {
+    id: "demo-audit-announcement", createdAt: new Date(Date.now() - 4 * 60_000).toISOString(),
+    actor: { displayName: "Demo staff", discordId: "staff-1042" }, action: "announce",
+    target: { scope: "all" }, details: "Scheduled maintenance begins in 15 minutes.", status: "completed",
+  },
+  {
+    id: "demo-audit-restart", createdAt: new Date(Date.now() - 19 * 60_000).toISOString(),
+    actor: { displayName: "Demo Moderator", discordId: "staff-2088" }, action: "restart",
+    target: { gameId: "emergency-usa", serverId: "2cf79f60-97ed-47c0-871b-64f427578b31" }, details: "Routine instance refresh.", status: "completed",
+  },
+  {
+    id: "demo-audit-warning", createdAt: new Date(Date.now() - 42 * 60_000).toISOString(),
+    actor: { displayName: "Demo staff", discordId: "staff-1042" }, action: "warn",
+    target: { userId: "100001" }, details: "Disruptive chat after a prior reminder.", status: "completed",
+  },
+  {
+    id: "demo-audit-shutdown", createdAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+    actor: { displayName: "Demo Moderator", discordId: "staff-2088" }, action: "shutdown",
+    target: { gameId: "emergency-london", serverId: "5d518fe0-13c9-4898-b28b-235fa6392470" }, details: "Server did not respond to the shutdown request.", status: "failed",
+    payload: { action: "shutdown", serverId: "5d518fe0-13c9-4898-b28b-235fa6392470", gameId: "emergency-london" }, error: "Timeout after 10 seconds waiting for the instance response.",
+  },
+];
 
 function auditCommand(action, command) {
   return async payload => {

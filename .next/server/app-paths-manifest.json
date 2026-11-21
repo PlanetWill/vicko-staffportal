@@ -1,0 +1,12 @@
+{
+  "/(portal)/[...slug]/page": "app/(portal)/[...slug]/page.js",
+  "/(portal)/audit-log/page": "app/(portal)/audit-log/page.js",
+  "/(portal)/leaves/page": "app/(portal)/leaves/page.js",
+  "/(portal)/players/[id]/page": "app/(portal)/players/[id]/page.js",
+  "/(portal)/players/page": "app/(portal)/players/page.js",
+  "/(portal)/servers/page": "app/(portal)/servers/page.js",
+  "/(portal)/staff/page": "app/(portal)/staff/page.js",
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js"
+}

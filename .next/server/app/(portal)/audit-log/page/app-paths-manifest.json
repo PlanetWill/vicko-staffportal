@@ -1,0 +1,3 @@
+{
+  "/(portal)/audit-log/page": "app/(portal)/audit-log/page.js"
+}

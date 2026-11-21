@@ -1,0 +1,12 @@
+{
+  "/(portal)/[...slug]/page": "/[...slug]",
+  "/(portal)/audit-log/page": "/audit-log",
+  "/(portal)/leaves/page": "/leaves",
+  "/(portal)/players/[id]/page": "/players/[id]",
+  "/(portal)/players/page": "/players",
+  "/(portal)/servers/page": "/servers",
+  "/(portal)/staff/page": "/staff",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/page": "/"
+}

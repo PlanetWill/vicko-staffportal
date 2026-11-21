@@ -1,0 +1,3 @@
+module.exports=[59229,a=>{"use strict";var b=a.i(87924);a.s(["default",0,function({reset:a}){return(0,b.jsxs)("section",{className:"panel content-panel route-message",role:"alert",children:[(0,b.jsx)("p",{className:"eyebrow",children:"WORKSPACE ERROR"}),(0,b.jsx)("h1",{children:"This page couldn’t load"}),(0,b.jsx)("p",{className:"muted",children:"Try again. If the problem continues, check your connection or portal configuration."}),(0,b.jsx)("button",{className:"button primary",onClick:()=>a(),children:"Try again"})]})}])}];
+
+//# sourceMappingURL=app_%28portal%29_error_jsx_0u1nfdcermrp5._.js.map

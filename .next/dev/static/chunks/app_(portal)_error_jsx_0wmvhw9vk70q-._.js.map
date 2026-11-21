@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/alfiechadd/Developer/vicko-staffportal/app/(portal)/error.jsx"],"sourcesContent":["\"use client\";\n\nexport default function PortalError({ reset }) {\n  return <section className=\"panel content-panel route-message\" role=\"alert\">\n    <p className=\"eyebrow\">WORKSPACE ERROR</p>\n    <h1>This page couldn’t load</h1>\n    <p className=\"muted\">Try again. If the problem continues, check your connection or portal configuration.</p>\n    <button className=\"button primary\" onClick={() => reset()}>Try again</button>\n  </section>;\n}\n"],"names":["PortalError","reset","className","role","onClick"],"mappings":";;;;;AAAA;;AAEe,SAASA,YAAY,EAAEC,KAAK,EAAE;IAC3C,qBAAO,6LAAC;QAAQC,WAAU;QAAoCC,MAAK;;0BACjE,6LAAC;gBAAED,WAAU;0BAAU;;;;;;0BACvB,6LAAC;0BAAG;;;;;;0BACJ,6LAAC;gBAAEA,WAAU;0BAAQ;;;;;;0BACrB,6LAAC;gBAAOA,WAAU;gBAAiBE,SAAS,IAAMH;0BAAS;;;;;;;;;;;;AAE/D;KAPwBD"}}]
+}

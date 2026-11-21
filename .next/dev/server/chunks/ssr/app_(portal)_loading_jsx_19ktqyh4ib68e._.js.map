@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/alfiechadd/Developer/vicko-staffportal/app/(portal)/loading.jsx"],"sourcesContent":["export default function PortalLoading() {\n  return <div className=\"route-loading\" role=\"status\" aria-label=\"Loading page\">\n    <span/><span/><span/>\n  </div>;\n}\n"],"names":["PortalLoading","className","role"],"mappings":";;;;;;AAAe,SAASA;IACtB,qBAAO,8OAAC;QAAIC,WAAU;QAAgBC,MAAK;QAAS,cAAW;;0BAC7D,8OAAC;;;;;0BAAM,8OAAC;;;;;0BAAM,8OAAC;;;;;;;;;;;AAEnB"}}]
+}

@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(portal)/layout,_N_T_/(portal)/audit-log/layout,_N_T_/(portal)/audit-log/page,_N_T_/audit-log"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KHBvcnRhbCk/audit-log/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/ee9b9dc90ca5e40038582c55d82df6a63641678cb73b1210a8c5748190ae2574/$/audit-log",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/(portal)/audit-log/page"
+    },
+    "isFallback": false
+  }
+}
