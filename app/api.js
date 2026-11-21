@@ -19,7 +19,7 @@ const servers = [
 const users = [
   {
     id: "100001", username: "DemoBuilder", displayName: "Demo Builder", presence: "in_game",
-    gameId: "emergency-usa", serverId: servers[0].id, playtimeSeconds: 173040,
+    gameId: "emergency-usa", serverId: "68be94fc-a6a0-4b26-9bb7-1a69eb2de052", playtimeSeconds: 173040,
     moderationHistory: [
       { id: "demo-kick", action: "kick", reason: "Repeated disruption after a warning.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:18:00Z" },
       { id: "demo-warning", action: "warn", reason: "Disruptive chat during an event.", moderator: "Demo Moderator", createdAt: "2026-11-19T20:05:00Z" },
