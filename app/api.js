@@ -8,7 +8,7 @@ const games = [
   ["staffordshire", "Staffordshire, West Midlands", "green"],
   ["california-whitelisted", "California City, Whitelisted", "blue"],
 ].map(([id, name, color]) => ({ id, name, color }));
-const servers = [
+let servers = [
   ["staffordshire", "c73962af-4172-4f68-9d24-51de763eb463", 16, 40, 66, 11220],
   ["emergency-usa", "68be94fc-a6a0-4b26-9bb7-1a69eb2de052", 32, 40, 48, 18720],
   ["emergency-usa", "2cf79f60-97ed-47c0-871b-64f427578b31", 24, 40, 61, 9840],
@@ -49,7 +49,26 @@ export const api = {
     if (!user) return null;
     const removed = removedDemoActions.get(user.id);
     const history = [...(demoActions.get(user.id) ?? []), ...user.moderationHistory];
-    return { ...user, moderationHistory: history.filter(entry => !removed?.has(entry.id)) };
+    const serverEnded = user.serverId && !servers.some(server => server.id === user.serverId);
+    return {
+      ...user,
+      ...(serverEnded && { presence: "offline", gameId: undefined, serverId: undefined }),
+      moderationHistory: history.filter(entry => !removed?.has(entry.id)),
+    };
+  },
+  async manageServer(payload) {
+    if (!demo) return request("/servers/actions", payload);
+    const { action, gameId, serverId } = payload;
+    const index = servers.findIndex(server => server.id === serverId && server.gameId === gameId);
+    if (index < 0) throw new Error("This server is no longer active. Refresh the server list.");
+    if (action === "shutdown") {
+      servers = servers.filter((_, position) => position !== index);
+      return;
+    }
+    if (action !== "restart") throw new Error("Unknown server action.");
+    servers = servers.map((server, position) => position === index
+      ? { ...server, id: crypto.randomUUID(), players: 0, uptimeSeconds: 0, pingMs: null }
+      : server);
   },
   announce: (payload) => demo ? Promise.resolve() : request("/announcements", payload),
   async moderate(payload) {

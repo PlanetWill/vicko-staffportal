@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. With no API configured, the portal shows five configured experiences and mock server data. Search for `DemoBuilder` (in-game) or `100002` (offline). Demo announcements and moderation requests only show local confirmation. The sample account has no real server join link.
+Open http://localhost:3000. With no API configured, the portal shows five configured experiences and mock server data. Search for `DemoBuilder` (in-game) or `100002` (offline). Demo announcements and moderation requests only show local confirmation. Restart replaces a sample server with a new empty instance, and shutdown removes it for the current browser session. The sample account has no real server join link.
 
 ## Connect your backend
 
@@ -24,6 +24,7 @@ The routes and payloads below are a proposed interface. Map them to your actual 
 | `GET /overview` | `{ games: [{ id, name, color? }], servers: [{ id, gameId, players, capacity, pingMs, uptimeSeconds? }] }`. Use the Roblox job ID for the server ID and `null` if ping is unavailable. Uptime is the age of the instance when the overview is fetched. Supply the five actual games here. |
 | `GET /users/lookup?query=...` | `{ id, username, displayName, presence, gameId?, serverId?, joinUrl?, playtimeSeconds?, moderationHistory? }` or JSON `null` for no match. Use `in_game`, `online`, `offline`, or `unknown` for presence. Supply an HTTPS Roblox link for the exact joinable instance. Playtime is the total across community games. |
 | `POST /announcements` | `{ scope, message, gameId?, serverId? }`. Scope is `all`, `game`, or `server`. Single-server announcements include both IDs. |
+| `POST /servers/actions` | `{ action, gameId, serverId }`. Use `restart` to replace the specified instance or `shutdown` to close it. The backend authorizes the staff member and verifies that the Roblox job ID belongs to the requested game. The overview refreshes after the command is accepted. |
 | `POST /moderation` | `{ action, userId, reason }` with `warn`, `kick`, or `ban`. |
 | `POST /moderation/history/remove` | `{ userId, entryId, reason }`. Remove the specified entry from the player's displayed history. The backend should verify entry ownership and removal permissions, and retain the audit record and any active penalty. |
 

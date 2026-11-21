@@ -14,6 +14,7 @@ const headings = {
   loa: ["Leaves of Absence", "Leave requests are coming in a future release."],
 };
 
+const serverActionLabels = { restart: "Restart server", shutdown: "Shut down server" };
 const moderationLabels = { warn: "Warning", kick: "Kick", ban: "Ban" };
 const actionLabels = { warn: "Issue warning", kick: "Kick player", ban: "Ban player" };
 
@@ -90,6 +91,7 @@ export default function Portal() {
     const userId = action.user?.id;
     setNotice(message);
     setAction(null);
+    if (action.type === "server") reload();
     if (!userId) return;
     setHistoryError("");
     try {
@@ -148,7 +150,15 @@ export default function Portal() {
                 <td><div className="flex items-center gap-2"><meter value={Math.min(server.players, server.capacity)} max={Math.max(server.capacity, 1)} aria-label="Server capacity used"/><span>{server.players} / {server.capacity}</span></div></td>
                 <td><span className={Number.isFinite(server.pingMs) ? "ping" : "muted"}>{Number.isFinite(server.pingMs) ? server.pingMs + " ms" : "—"}</span></td>
                 <td>{duration(server.uptimeSeconds)}</td>
-                <td className="text-right"><button className="button compact" aria-label={"Announce to server " + server.id} onClick={() => setAction({ type: "announce", scope: "server", gameId: server.gameId, serverId: server.id })}><Megaphone size={15}/>Announce</button></td></tr>)}
+                <td><div className="flex flex-wrap justify-end gap-2"><button className="button compact" aria-label={"Announce to server " + server.id} onClick={() => setAction({ type: "announce", scope: "server", gameId: server.gameId, serverId: server.id })}><Megaphone size={15}/>Announce</button>
+                  {Object.entries(serverActionLabels).map(([kind, label]) => (
+                    <button key={kind} className={kind === "shutdown" ? "button compact danger" : "button compact"}
+                      aria-label={label + " " + server.id}
+                      onClick={() => setAction({ type: "server", kind, server })}>
+                      {kind === "restart" ? "Restart" : "Shut down"}
+                    </button>
+                  ))}
+                </div></td></tr>)}
               {!visible.length && <tr><td colSpan={5} className="empty">{loading ? "Loading servers…" : "No active servers to display."}</td></tr>}
             </tbody></table></div>
           </section>
@@ -222,14 +232,22 @@ function ActionDialog({ action, games, servers, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const announcing = action.type === "announce";
   const removing = action.type === "remove";
-  const title = removing ? "Remove history entry" : announcing ? "Send announcement" : actionLabels[action.kind];
+  const managingServer = action.type === "server";
+  const title = managingServer ? serverActionLabels[action.kind] : removing ? "Remove history entry" : announcing ? "Send announcement" : actionLabels[action.kind];
   useEffect(() => { ref.current.showModal(); }, []);
   async function submit(event) {
     event.preventDefault();
-    if (pending || !content.trim()) return;
+    if (pending || (!managingServer && !content.trim())) return;
     setPending(true);
     setError("");
     try {
+      if (managingServer) {
+        await api.manageServer({ action: action.kind, gameId: action.server.gameId, serverId: action.server.id });
+        onSuccess(demo
+          ? action.kind === "restart" ? "Demo server restarted." : "Demo server shut down."
+          : "Server command accepted. Refresh to check the latest server status.");
+        return;
+      }
       if (removing) {
         await api.removeHistory({ userId: action.user.id, entryId: action.entry.id, reason: content.trim() });
         onSuccess(demo ? "Demo history entry removed." : "History removal accepted by the API.");
@@ -248,15 +266,24 @@ function ActionDialog({ action, games, servers, onClose, onSuccess }) {
   }
   return <dialog ref={ref} aria-labelledby="dialog-title" onCancel={event => { event.preventDefault(); if (!pending) onClose(); }}>
     <form onSubmit={submit}><div className="flex items-center justify-between gap-3"><h2 id="dialog-title">{title}</h2><button type="button" className="icon-button" aria-label="Close" disabled={pending} onClick={onClose}><X size={21}/></button></div>
-      {announcing ? <><label htmlFor="scope">Audience</label><select id="scope" value={scope} onChange={event => setScope(event.target.value)} disabled={pending}><option value="all">All games</option><option value="game">One game</option><option value="server">One server</option></select>
+      {managingServer ? <div className="presence">
+        <div className="min-w-0">
+          <strong>{games.find(item => item.id === action.server.gameId)?.name ?? action.server.gameId}</strong>
+          <code className="block">{action.server.id}</code>
+          <p className="muted mt-2">{action.server.players} connected {action.server.players === 1 ? "player" : "players"}</p>
+          <p className="mt-2">{action.kind === "restart"
+            ? "Restarting replaces this server instance and can disconnect its players."
+            : "Shutting down closes this server and disconnects its players."}</p>
+        </div>
+      </div> : announcing ? <><label htmlFor="scope">Audience</label><select id="scope" value={scope} onChange={event => setScope(event.target.value)} disabled={pending}><option value="all">All games</option><option value="game">One game</option><option value="server">One server</option></select>
         {scope !== "all" && <><label htmlFor="experience">Game</label><select id="experience" required value={gameId} onChange={event => { setGameId(event.target.value); setServerId(""); }} disabled={pending}><option value="">Select a game</option>{games.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></>}
         {scope === "server" && <><label htmlFor="instance">Server ID</label><select id="instance" required value={serverId} onChange={event => setServerId(event.target.value)} disabled={pending}><option value="">Select a server</option>{servers.filter(item => item.gameId === gameId).map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select></>}
       </> : <p className="muted mt-3">@{action.user.username} · {action.user.id}</p>}
       {removing && <div className="presence"><div><strong>{moderationLabels[action.entry.action] ?? action.entry.action}</strong><p className="muted">{action.entry.reason || "No reason recorded"}</p><p className="muted">This removes the history entry. Active penalties stay in effect.</p></div></div>}
-      <label htmlFor="content">{removing ? "Reason for removal" : announcing ? "Message" : "Reason"}</label><textarea id="content" required rows={4} value={content} onChange={event => setContent(event.target.value)} disabled={pending}/>
+      {!managingServer && <><label htmlFor="content">{removing ? "Reason for removal" : announcing ? "Message" : "Reason"}</label><textarea id="content" required rows={4} value={content} onChange={event => setContent(event.target.value)} disabled={pending}/></>}
       {demo && <p className="muted mt-2">Demo mode. This action stays in the portal.</p>}
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="flex justify-end gap-2 mt-5"><button type="button" className="button" disabled={pending} onClick={onClose}>Cancel</button><button className={removing || action.kind === "ban" ? "button danger" : "button primary"} disabled={pending || !content.trim()}>{pending ? "Submitting…" : title}</button></div>
+      <div className="flex justify-end gap-2 mt-5"><button type="button" className="button" disabled={pending} onClick={onClose}>Cancel</button><button className={managingServer || removing || action.kind === "ban" ? "button danger" : "button primary"} disabled={pending || (!managingServer && !content.trim())}>{pending ? "Submitting…" : title}</button></div>
     </form>
   </dialog>;
 }
