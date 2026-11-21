@@ -29,7 +29,7 @@ The routes and payloads below are a proposed interface. Map them to your actual 
 
 Use string IDs throughout. Return a successful HTTP status for accepted writes, and optionally return `{ message }` for a failed request. The UI distinguishes acceptance from in-game delivery.
 
-Each moderation history entry is `{ id, action, reason, moderator, createdAt }`, with an ISO timestamp for `createdAt`. Return an empty array for a player with no recorded actions. The profile reloads the player's record by ID after an accepted moderation request. Demo history updates for the current browser session and resets on a full page reload.
+Each moderation history entry is `{ id, action, reason, moderator, createdAt, scope?, gameId?, gameName? }`, with an ISO timestamp for `createdAt`. Use `scope: "global"` for actions that appear under every game filter. For game-specific actions, provide a `gameId` matching the overview and optionally a `gameName` for games no longer listed. Older entries without scope or game information appear in the unfiltered history as Unknown game. Return an empty array for a player with no recorded actions. The profile reloads the player's record by ID after an accepted moderation request. Demo history updates for the current browser session and resets on a full page reload.
 
 ## Connect the Staff Registry
 
