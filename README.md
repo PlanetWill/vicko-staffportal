@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. With no API configured, the portal shows four sample experiences and mock server data. Search for `DemoBuilder` (in-game) or `100002` (offline). Demo announcements and moderation requests only show local confirmation. The sample account has no real server join link.
+Open http://localhost:3000. With no API configured, the portal shows five configured experiences and mock server data. Search for `DemoBuilder` (in-game) or `100002` (offline). Demo announcements and moderation requests only show local confirmation. The sample account has no real server join link.
 
 ## Connect your backend
 
@@ -21,7 +21,7 @@ The routes and payloads below are a proposed interface. Map them to your actual 
 
 | Request | Expected contract |
 | --- | --- |
-| `GET /overview` | `{ games: [{ id, name, color? }], servers: [{ id, gameId, players, capacity, pingMs, uptimeSeconds? }] }`. Use the Roblox job ID for the server ID and `null` if ping is unavailable. Uptime is the age of the instance when the overview is fetched. Supply the four actual games here. |
+| `GET /overview` | `{ games: [{ id, name, color? }], servers: [{ id, gameId, players, capacity, pingMs, uptimeSeconds? }] }`. Use the Roblox job ID for the server ID and `null` if ping is unavailable. Uptime is the age of the instance when the overview is fetched. Supply the five actual games here. |
 | `GET /users/lookup?query=...` | `{ id, username, displayName, presence, gameId?, serverId?, joinUrl?, playtimeSeconds?, moderationHistory? }` or JSON `null` for no match. Use `in_game`, `online`, `offline`, or `unknown` for presence. Supply an HTTPS Roblox link for the exact joinable instance. Playtime is the total across community games. |
 | `POST /announcements` | `{ scope, message, gameId?, serverId? }`. Scope is `all`, `game`, or `server`. Single-server announcements include both IDs. |
 | `POST /moderation` | `{ action, userId, reason }` with `warn`, `kick`, or `ban`. |
