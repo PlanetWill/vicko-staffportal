@@ -3,6 +3,8 @@ import { usePathname } from "next/navigation";
 
 const breadcrumbs = [
   { match: pathname => pathname === "/servers", section: "Operations", page: "Servers" },
+  { match: pathname => pathname.startsWith("/servers/"), section: "Operations", page: "Server details" },
+  { match: pathname => pathname.startsWith("/servers/"), section: "Operations", page: "Server details" },
   { match: pathname => pathname === "/players", section: "Operations", page: "Player lookup" },
   { match: pathname => pathname.startsWith("/players/"), section: "Operations", page: "Player profile" },
   { match: pathname => pathname === "/audit-log", section: "Operations", page: "Audit Log" },

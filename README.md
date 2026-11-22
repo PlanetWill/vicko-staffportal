@@ -11,13 +11,26 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. With no API configured, the portal shows five configured experiences and mock server data. Search for `DemoBuilder` (in-game) or `100002` (offline). Demo announcements and moderation requests only show local confirmation. Restart replaces a sample server with a new empty instance, and shutdown removes it for the current browser session. The sample account has no real server join link.
+Open http://localhost:3000. Every portal route redirects to Discord sign-in until OAuth, the staff guild, and at least one allowed role are configured. In local development, you can opt into inert sample data with `NEXT_PUBLIC_PORTAL_DEMO_MODE=true`; sign-in and the guild-role check remain required.
 
 ## Connect your backend
 
-Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_PORTAL_API_BASE` to the existing API's base URL or a same-origin path such as `/api/staff`. These values are public at build time. Keep service credentials in your existing authenticated backend or server-side gateway.
+Copy `.env.example` to `.env.local` and configure Discord OAuth before starting the portal. The OAuth client secret, session secret, API base URL, and API shared secret are server-only values. The browser calls the same-origin `/api/portal/*` handlers; the handlers verify the signed Auth.js session and forward a trusted Discord staff identity to the backend.
 
-The routes and payloads below are a proposed interface. Map them to your actual API and authentication in `app/api.js`. The current client uses cookie credentials. Same-origin routing is simplest. For cross-origin cookie auth, configure the API to accept credentialed requests from the portal origin. The backend must enforce staff permissions and protect state-changing requests against CSRF before connecting live controls.
+## Configure Discord sign-in
+
+1. Create an application in the Discord Developer Portal and add an OAuth2 redirect URL for each environment: `http://localhost:3000/api/auth/callback/discord` locally and `https://YOUR_PORTAL_HOST/api/auth/callback/discord` in production.
+2. Set `AUTH_DISCORD_ID` and `AUTH_DISCORD_SECRET` from that application. Generate `AUTH_SECRET` with a cryptographically secure random value (for example, `openssl rand -base64 32`). Never commit `.env.local` or expose these values in `NEXT_PUBLIC_*` variables.
+3. Set `DISCORD_GUILD_ID` and `DISCORD_ALLOWED_ROLE_IDS` (a comma-separated allowlist). A Discord account must be a member of that guild and hold at least one configured role. Set `DISCORD_ROLE_NAME_MAP` as semicolon-separated `role-id=Role Name` entries to show the matching role name in the sidebar. Missing auth configuration fails closed.
+4. Use HTTPS in production. Auth.js uses OAuth state and PKCE checks, and its short-lived session cookie is encrypted, HttpOnly, SameSite, and Secure on HTTPS.
+
+Only `identify` and `guilds.members.read` are requested. The Discord access token is used server-side to verify guild membership and roles; it is not exposed in the browser session.
+
+## Connect the staff API
+
+Set `PORTAL_API_BASE` to the backend origin or API prefix, and configure a high-entropy `PORTAL_API_SHARED_SECRET` in both this app and the backend gateway. Do not expose either value through a public environment variable. The app only proxies the documented allowlisted read/write routes. It forwards `X-Staff-Discord-ID`, `X-Staff-Discord-Name`, and `X-Staff-Discord-Roles` alongside the shared bearer credential. The backend must accept these identity headers only from this trusted gateway, validate the shared credential, independently authorize staff actions, and derive audit actors from the forwarded authenticated identity. Do not trust identity fields in request JSON.
+
+The routes and payloads below are the API contract. Protect them at the backend too; the Next.js proxy and UI are not substitutes for authorization at the data/action service.
 
 | Request | Expected contract |
 | --- | --- |
@@ -35,13 +48,13 @@ Each moderation history entry is `{ id, action, reason, moderator, createdAt, sc
 
 ## Connect the Staff Registry
 
-Set `NEXT_PUBLIC_STAFF_SHEET_URL` to your embeddable Google Sheets view URL, for example `https://docs.google.com/spreadsheets/d/SHEET_ID/preview?gid=0`. Test with a staff account. Access depends on the sheet's sharing permissions and Google sign-in in the browser. Keep staff-only roster data behind your existing access controls.
+Set `NEXT_PUBLIC_STAFF_SHEET_URL` to an embeddable Google Sheets view URL only if the sheet itself is access-controlled. Because this is a browser iframe, the URL is public to signed-in staff and Google applies its own sharing permissions. For sensitive rosters, serve the data through the authenticated backend instead.
 
 Leaves of Absence is a placeholder.
 
 
 ## Command audit logging
 
-Record announcements, warns, kicks, bans, history removals, restarts, and shutdowns on the backend for every command attempt. Derive the actor’s Discord user ID from the authenticated session once sign-in is implemented. Keep that stable ID alongside a display name snapshot and use server-generated timestamps. Do not trust actor fields supplied by the browser.
+Record announcements, warns, kicks, bans, history removals, restarts, and shutdowns on the backend for every command attempt. Derive the actor’s Discord user ID from the authenticated gateway headers. Keep that stable ID alongside a display name snapshot and use server-generated timestamps. Do not trust actor fields supplied by the browser.
 
 Use action names `announce`, `warn`, `kick`, `ban`, `remove_history`, `restart`, and `shutdown`. Use outcomes `accepted`, `completed`, `rejected`, or `failed`. Reserve `completed` for confirmed execution. Keep audit entries even when a moderation history record is removed. The demo records commands locally for the current page session.

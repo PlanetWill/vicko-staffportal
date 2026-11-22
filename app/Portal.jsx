@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, AlertTriangle, Ban, CalendarDays, Check, CircleDot, Clipboard, Clock, Download, Gamepad2, Megaphone, MoreHorizontal, Power, RefreshCw, RotateCcw, Search, Server, ShieldAlert, Trash2, UserRoundX, Users, X } from "lucide-react";
+import { Activity, AlertTriangle, Ban, CalendarDays, Check, CircleDot, Clipboard, Clock, Download, Gamepad2, Megaphone, MoreHorizontal, Power, RefreshCw, RotateCcw, Search, Server, ShieldAlert, Trash2, UserRoundX, Users, X, FileSpreadsheet, Bell } from "lucide-react";
 import { api, demo, safeJoinUrl, sheetUrl } from "./api";
 import { createPortal } from "react-dom";
 
 const headings = {
   servers: ["Server overview", "Monitor active Roblox instances and broadcast announcements."],
+  "server-detail": ["Server details", "Live health, capacity, and recent operations for this instance."],
   players: ["Player lookup", "Find a Roblox account, check its in-game status, and take moderation actions."],
   audit: ["Audit Log", "Review staff commands and their recorded outcomes."],
   registry: ["Staff Registry", "View the staff roster from Google Sheets."],
@@ -46,14 +47,14 @@ function ageText(value, now) {
   return `${hours}h ago`;
 }
 
-export default function Portal({ tab, playerId, initialGame, initialServer }) {
+export default function Portal({ tab, playerId, serverId, initialGame, initialServer, initialData, initialQuery }) {
   const router = useRouter();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(initialData ?? null);
   const [overviewError, setOverviewError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [clockNow, setClockNow] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialData);
   const [game, setGame] = useState(initialGame ?? null);
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(undefined);
@@ -61,15 +62,16 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
   const [searchError, setSearchError] = useState("");
   const activeSearch = useRef(null);
   const [action, setAction] = useState(null);
-  const [selectedServer, setSelectedServer] = useState(null);
   const [copiedId, setCopiedId] = useState("");
   const [notice, setNotice] = useState("");
   const [historyError, setHistoryError] = useState("");
   const serverSearchRef = useRef(null);
   const playerSearchRef = useRef(null);
   const [recentLookups, setRecentLookups] = useState([]);
+  const [recentLookupsLoaded, setRecentLookupsLoaded] = useState(false);
   useEffect(() => {
     try { const saved = JSON.parse(localStorage.getItem("vicko-recent-lookups") || "[]"); setRecentLookups(Array.isArray(saved) ? saved.slice(0, 5) : []); } catch { setRecentLookups([]); }
+    finally { setRecentLookupsLoaded(true); }
   }, []);
   useEffect(() => {
     setClockNow(Date.now());
@@ -77,6 +79,11 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
+    if (initialData && refresh === 0) {
+      setLastUpdated(Date.now());
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     api.overview(controller.signal).then(value => {
       if (!controller.signal.aborted) { setData(value); setLastUpdated(Date.now()); }
@@ -86,7 +93,7 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [refresh]);
+  }, [refresh, initialData]);
   useEffect(() => () => activeSearch.current?.abort(), []);
   useEffect(() => {
     if (tab !== "players" || !playerId) return;
@@ -135,7 +142,7 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
   const [serverSort, setServerSort] = useState({ key: "players", direction: "desc" });
   const filteredServers = visible.filter(server => {
     const queryMatch = server.id.toLowerCase().includes(serverQuery.trim().toLowerCase());
-    const filterMatch = serverFilter === "all" || (serverFilter === "high-ping" && Number.isFinite(server.pingMs) && server.pingMs > 200) || (serverFilter === "near-capacity" && server.capacity > 0 && server.players / server.capacity >= .8);
+    const filterMatch = serverFilter === "all" || (serverFilter === "elevated-ping" && Number.isFinite(server.pingMs) && server.pingMs > 100) || (serverFilter === "poor-ping" && Number.isFinite(server.pingMs) && server.pingMs > 200) || (serverFilter === "near-capacity" && server.capacity > 0 && server.players / server.capacity >= .75);
     return queryMatch && filterMatch;
   }).sort((a, b) => {
     const difference = (Number(a[serverSort.key]) || 0) - (Number(b[serverSort.key]) || 0);
@@ -149,6 +156,10 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
   const pings = servers.map(server => server.pingMs).filter(Number.isFinite);
   const averagePing = pings.length ? Math.round(pings.reduce((sum, ping) => sum + ping, 0) / pings.length) : null;
   const latency = averagePing === null ? "—" : averagePing + " ms";
+  const healthyServers = servers.filter(server => Number.isFinite(server.pingMs) && server.pingMs <= 100 && (!server.capacity || server.players / server.capacity < .9)).length;
+  const occupiedPercent = totalCapacity ? Math.round(totalPlayers / totalCapacity * 100) : 0;
+  const detailServer = servers.find(server => server.id === serverId);
+  const detailGame = games.find(item => item.id === detailServer?.gameId);
   const profile = tab === "players" ? result : null;
   const [title, description] = profile
     ? [profile.displayName || profile.username, ""]
@@ -215,16 +226,16 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
   return <>
       <div className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-10 lg:px-14 lg:py-11">
         <div className="page-heading"><div><h1>{title}</h1>{description && <p>{description}</p>}</div>
-          {tab === "servers" && <div className="server-toolbar"><span className="last-updated" role="status">{loading ? "Updating…" : relativeAge(lastUpdated, clockNow)}</span><div className="flex flex-wrap gap-2"><button className="button" disabled={loading} onClick={reload} title="Refresh (R)"><RefreshCw size={16} className={loading ? "animate-spin" : ""}/>Refresh<kbd>R</kbd></button><button className="button primary" onClick={() => setAction({ type: "announce", scope: "all" })}><Megaphone size={17}/>Global announcement</button></div></div>}
+          {tab === "servers" && <div className="server-toolbar"><span className="last-updated" role="status">{loading ? (lastUpdated ? "Refreshing…" : "") : lastUpdated ? relativeAge(lastUpdated, clockNow) : initialData ? "Just updated" : ""}</span><div className="flex flex-wrap gap-2"><button className="button" disabled={loading} onClick={reload} title="Refresh (R)"><RefreshCw size={16} className={loading ? "animate-spin" : ""}/>Refresh<kbd>R</kbd></button><button className="button primary" onClick={() => setAction({ type: "announce", scope: "all" })}><Megaphone size={17}/>Global announcement</button></div></div>}
           {profile && <button className="button" onClick={() => { setNotice(""); router.push("/players"); }}><Search size={16}/>Back to player lookup</button>}
         </div>
         {notice && <div className="notice" role="status"><Check size={17}/>{notice}<button className="icon-button ml-auto" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={16}/></button></div>}
         {tab === "servers" && <>
           <div className="stats grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[[Server, "Active servers", servers.length], [Users, "Players online", totalPlayers], [Activity, "Average ping", latency]].map(([Icon, label, value]) => <section className="panel stat" key={label}><span><Icon size={16}/>{label}</span><strong>{data ? value : "—"}</strong>{label === "Active servers" ? <div className="stat-footer">Across {games.length} experiences</div> : label === "Players online" ? <div className="stat-capacity"><span>{totalPlayers} / {totalCapacity} player slots</span><meter value={totalPlayers} max={Math.max(totalCapacity, 1)} aria-label="Overall player capacity"/></div> : <div className="stat-footer"><i className={averagePing !== null && averagePing < 100 ? "status-dot healthy" : "status-dot"}/>{averagePing === null ? "Latency unavailable" : averagePing < 100 ? "Healthy latency" : "Elevated latency"}</div>}</section>)}
+            {[[Server, "Active servers", servers.length], [Users, "Players online", totalPlayers], [Activity, "Average ping", latency]].map(([Icon, label, value]) => <section className="panel stat" key={label}><span><Icon size={16}/>{label}</span>{data ? <><strong>{value}</strong>{label === "Active servers" ? <div className="stat-context"><div className="stat-footer">Across {games.length} experiences</div><span className="stat-health"><i className="status-dot healthy"/>{healthyServers} healthy</span></div> : label === "Players online" ? <div className="stat-capacity"><span>{totalPlayers} / {totalCapacity} player slots <b>{occupiedPercent}%</b></span><meter value={totalPlayers} max={Math.max(totalCapacity, 1)} aria-label={`Overall player capacity ${occupiedPercent}%`}/></div> : <div className="stat-context"><div className="stat-footer">Latency across active instances</div><span className={`stat-health ${averagePing !== null && averagePing > 100 ? "attention" : ""}`}><i className={`status-dot${averagePing !== null && averagePing <= 100 ? " healthy" : ""}`}/>{averagePing === null ? "No ping data" : averagePing <= 100 ? "Healthy" : "Needs attention"}</span></div>}</> : <div className="stat-skeleton" aria-label={`Loading ${label}`}><i/><i/></div>}</section>)}
           </div>
           {overviewError && <p className="error" role="alert">{overviewError}</p>}
-          <section className="game-section"><div className="experiences-heading"><h2>Experiences</h2><span>{games.length} total</span></div><div className="experiences-grid grid grid-cols-1 gap-2 min-[500px]:grid-cols-2 lg:grid-cols-3">
+          <section className="game-section"><div className="experiences-heading"><h2>Experiences</h2>{data ? <span>{games.length} total</span> : <span className="badge-skeleton" aria-label="Loading experiences"/>}</div><div className="experiences-grid grid grid-cols-1 gap-2 min-[500px]:grid-cols-2 lg:grid-cols-3">
             {games.map(item => {
               const count = servers.filter(server => server.gameId === item.id);
               return <button key={item.id} aria-pressed={current?.id === item.id} className={`game${current?.id === item.id ? " active" : ""}${count.length === 0 ? " inactive" : ""}`} onClick={() => setGame(item.id)}>
@@ -235,9 +246,9 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
           </div></section>
           <section className="panel server-panel"><div className="section-head"><div><h2>{current?.name ?? "Servers"}</h2><p>{filteredServers.length} of {visible.length} active {visible.length === 1 ? "server" : "servers"}</p></div>{current && <button className="button" onClick={() => setAction({ type: "announce", scope: "game", gameId: current.id })}><Megaphone size={16}/>Announce to this experience</button>}</div>
             {!visible.length && !loading && <div className="empty-servers"><span className="empty-server-icon"><Server size={20}/></span><h3>No active instances running</h3><p>{current?.name ?? "This experience"} currently has no active servers.</p><button className="button" onClick={reload}><RefreshCw size={14}/>Refresh servers</button></div>}
-            <div className="server-filters"><div className="server-search"><Search size={15}/><input ref={serverSearchRef} aria-label="Search server IDs" value={serverQuery} onChange={event => setServerQuery(event.target.value)} placeholder="Filter by server ID"/><kbd>/</kbd>{serverQuery && <button type="button" className="search-clear" aria-label="Clear server ID filter" title="Clear filter" onClick={() => { setServerQuery(""); serverSearchRef.current?.focus(); }}><X size={14}/></button>}</div><select aria-label="Filter servers" value={serverFilter} onChange={event => setServerFilter(event.target.value)}><option value="all">All servers</option><option value="high-ping">High ping (&gt;200 ms)</option><option value="near-capacity">Near capacity (75%+)</option></select></div>
+            <div className="server-filters"><div className="server-search"><Search size={15}/><input ref={serverSearchRef} aria-label="Search server IDs" value={serverQuery} onChange={event => setServerQuery(event.target.value)} placeholder="Filter by server ID"/><kbd>/</kbd>{serverQuery && <button type="button" className="search-clear" aria-label="Clear server ID filter" title="Clear filter" onClick={() => { setServerQuery(""); serverSearchRef.current?.focus(); }}><X size={14}/></button>}</div><select aria-label="Filter servers" value={serverFilter} onChange={event => setServerFilter(event.target.value)}><option value="all">All servers</option><option value="elevated-ping">Elevated ping (&gt;100 ms)</option><option value="poor-ping">Poor ping (&gt;200 ms)</option><option value="near-capacity">Near capacity (75%+)</option></select><button className="button compact filter-reset" onClick={() => { setServerQuery(""); setServerFilter("all"); }} disabled={!serverQuery && serverFilter === "all"}>Reset</button></div>
             <div className="overflow-x-auto server-table-scroll" onScroll={event => event.currentTarget.querySelectorAll(".action-menu[open]").forEach(menu => { menu.open = false; })}><table><thead><tr><th>Roblox server ID</th><th><button className="sort-button" onClick={() => sortServers("players")}>Players {serverSort.key === "players" ? serverSort.direction === "asc" ? "↑" : "↓" : "↕"}</button></th><th><button className="sort-button" onClick={() => sortServers("pingMs")}>Ping {serverSort.key === "pingMs" ? serverSort.direction === "asc" ? "↑" : "↓" : "↕"}</button></th><th><button className="sort-button" onClick={() => sortServers("uptimeSeconds")}>Uptime {serverSort.key === "uptimeSeconds" ? serverSort.direction === "asc" ? "↑" : "↓" : "↕"}</button></th><th className="text-right">Actions</th></tr></thead><tbody>
-              {filteredServers.map(server => <tr key={server.id}><td><div className="server-id-group"><code className="server-id" title={server.id}>{server.id.length > 22 ? `${server.id.slice(0, 8)}…${server.id.slice(-8)}` : server.id}</code><button className={`icon-button has-tooltip${copiedId === server.id ? " copied" : ""}`} data-tooltip={copiedId === server.id ? "Copied" : "Copy server ID"} title={copiedId === server.id ? "Copied" : "Copy server ID"} aria-label={copiedId === server.id ? "Server ID copied" : "Copy server ID " + server.id} onClick={() => copy(server.id)}>{copiedId === server.id ? <Check size={14}/> : <Clipboard size={14}/>}</button><button className="icon-button has-tooltip" data-tooltip="Inspect server" title="Inspect server" aria-label={"Inspect server " + server.id} onClick={() => setSelectedServer(server)}><CircleDot size={14}/></button></div></td>
+              {filteredServers.map(server => <tr key={server.id}><td><div className="server-id-group"><code className="server-id" title={server.id}>{server.id.length > 22 ? `${server.id.slice(0, 8)}…${server.id.slice(-8)}` : server.id}</code><button className={`icon-button has-tooltip${copiedId === server.id ? " copied" : ""}`} data-tooltip={copiedId === server.id ? "Copied" : "Copy server ID"} title={copiedId === server.id ? "Copied" : "Copy server ID"} aria-label={copiedId === server.id ? "Server ID copied" : "Copy server ID " + server.id} onClick={() => copy(server.id)}>{copiedId === server.id ? <Check size={14}/> : <Clipboard size={14}/>}</button><button className="icon-button has-tooltip" data-tooltip="Open server details" title="Open server details" aria-label={"Open server details for " + server.id} onClick={() => router.push(`/servers/${encodeURIComponent(server.id)}`)}><CircleDot size={14}/></button></div></td>
                 <td className="numeric-cell"><div className="flex items-center gap-2"><span>{server.players} / {server.capacity}</span><span className={`capacity-meter${server.capacity > 0 && server.players / server.capacity >= .9 ? " capacity-critical" : server.capacity > 0 && server.players / server.capacity >= .75 ? " capacity-warning" : ""}`} role="meter" aria-valuenow={server.players} aria-valuemin={0} aria-valuemax={server.capacity} aria-label={`Server capacity ${server.players} of ${server.capacity}; amber above 75 percent`}><span style={{ width: `${Math.min(100, server.capacity ? server.players / server.capacity * 100 : 0)}%` }}/></span></div></td>
                 <td className="numeric-cell"><span title="Healthy under 100 ms · elevated 100–200 ms · poor over 200 ms" className={!Number.isFinite(server.pingMs) ? "muted" : server.pingMs < 100 ? "ping ping-good" : server.pingMs <= 200 ? "ping ping-warn" : "ping ping-bad"}>{Number.isFinite(server.pingMs) ? server.pingMs + " ms" : "—"}</span></td>
                 <td>{duration(server.uptimeSeconds)}</td>
@@ -246,12 +257,13 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
             </tbody></table></div>{filteredServers.length > 0 && <div className="server-table-footer"><span>Showing {filteredServers.length} of {visible.length} servers</span><span>Live instance view</span></div>}
           </section>
         </>}
+        {tab === "server-detail" && <ServerDetailPage server={detailServer} game={detailGame} loading={loading} error={overviewError} onBack={() => router.push("/servers")} onCopy={copy} copied={copiedId === detailServer?.id} onAction={kind => detailServer && setAction({ type: "server", kind, server: detailServer })} onAnnounce={() => detailServer && setAction({ type: "announce", scope: "server", gameId: detailServer.gameId, serverId: detailServer.id })}/>}
         {tab === "players" && !profile && !playerId && <section className="panel content-panel">
           <form onSubmit={event => { event.preventDefault(); if (query.trim()) lookup(query); }}>
             <label htmlFor="player-query">Roblox username or user ID</label><div className="player-search-row"><span className="player-input-wrap"><input ref={playerSearchRef} id="player-query" className="min-w-0 flex-1" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by username or ID" required/><kbd>/</kbd></span><button className="button primary" disabled={searching || !query.trim()}><Search size={16}/>{searching ? "Searching…" : "Search"}</button></div>
           </form>
           {!profile && !result && <div className="lookup-welcome"><div className="lookup-welcome-icon"><Search size={20}/></div><div><strong>Find a player</strong><p>Search by Roblox username or user ID to review presence and moderation history.</p></div><div className="lookup-presets">{demo && <><button onClick={() => lookup("DemoBuilder")}>DemoBuilder</button><button onClick={() => lookup("100002")}>100002</button></>}</div></div>}
-          <div className="recent-lookups"><div className="recent-heading"><h2>Recent lookups</h2>{recentLookups.length > 0 && <button onClick={() => { setRecentLookups([]); try { localStorage.removeItem("vicko-recent-lookups"); } catch {} }}>Clear all</button>}</div>{recentLookups.length ? <div className="recent-list">{recentLookups.map(item => <div key={item.id} className="recent-player-row"><button className="recent-player" onClick={() => lookup(item.id)} aria-label={`Open profile for ${item.username}`}><span className="recent-avatar">{(item.displayName || item.username || "?").slice(0, 1).toUpperCase()}</span><span className="recent-player-copy"><strong>{item.displayName}</strong><small>@{item.username} · {new Date(item.lookedUpAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span><span className={`recent-status ${item.presence === "in_game" ? "online" : ""}`}>{item.presence === "in_game" ? "In game" : item.presence === "online" ? "Online" : item.presence === "offline" ? "Offline" : ""}</span></button><button className="recent-remove" aria-label={`Remove ${item.username} from recent lookups`} title="Remove from recent lookups" onClick={() => setRecentLookups(previous => { const next = previous.filter(entry => entry.id !== item.id); try { localStorage.setItem("vicko-recent-lookups", JSON.stringify(next)); } catch {} return next; })}><X size={14}/></button></div>)}</div> : <p className="recent-empty">Profiles you search will appear here for quick access.</p>}</div>
+          <div className="recent-lookups"><div className="recent-heading"><h2>Recent lookups</h2>{recentLookupsLoaded && recentLookups.length > 0 && <button onClick={() => { setRecentLookups([]); try { localStorage.removeItem("vicko-recent-lookups"); } catch {} }}>Clear all</button>}</div>{!recentLookupsLoaded ? <div className="recent-skeleton" aria-label="Loading recent lookups"><i/><i/></div> : recentLookups.length ? <div className="recent-list">{recentLookups.map(item => <div key={item.id} className="recent-player-row"><button className="recent-player" onClick={() => lookup(item.id)} aria-label={`Open profile for ${item.username}`}><span className="recent-avatar">{(item.displayName || item.username || "?").slice(0, 1).toUpperCase()}</span><span className="recent-player-copy"><strong>{item.displayName}</strong><small>@{item.username} · {new Date(item.lookedUpAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span><span className={`recent-status ${item.presence === "in_game" ? "online" : ""}`}>{item.presence === "in_game" ? "In game" : item.presence === "online" ? "Online" : item.presence === "offline" ? "Offline" : ""}</span></button><button className="recent-remove" aria-label={`Remove ${item.username} from recent lookups`} title="Remove from recent lookups" onClick={() => setRecentLookups(previous => { const next = previous.filter(entry => entry.id !== item.id); try { localStorage.setItem("vicko-recent-lookups", JSON.stringify(next)); } catch {} return next; })}><X size={14}/></button></div>)}</div> : <p className="recent-empty">Profiles you search will appear here for quick access.</p>}</div>
           {searchError && <p role="alert" className="error">{searchError}</p>}
           {result === null && <p className="muted mt-5" role="status">No matching Roblox account found.</p>}
         </section>}
@@ -262,17 +274,19 @@ export default function Portal({ tab, playerId, initialGame, initialServer }) {
         }}
           onAction={kind => setAction({ type: "moderate", kind, user: profile })}
           onRemove={entry => setAction({ type: "remove", entry, user: profile })}/>}
-        {tab === "audit" && <AuditLog games={games} clockNow={clockNow} onOpenTarget={target => {
+        {tab === "audit" && <AuditLog games={games} clockNow={clockNow} initialQuery={initialQuery} onOpenTarget={target => {
           if (target.userId) router.push(`/players/${encodeURIComponent(target.userId)}`);
           else if (target.serverId) {
             const params = new URLSearchParams({ experience: target.gameId ?? "", server: target.serverId });
             router.push(`/servers?${params.toString()}`);
           }
         }}/>}
-        {tab === "registry" && <section className="panel content-panel">{sheetUrl ? <><a className="text-link" href={sheetUrl} target="_blank" rel="noreferrer">Open in Google Sheets</a><iframe className="sheet" title="Staff Registry Google Sheet" src={sheetUrl}/></> : <><h2>Google Sheet setup</h2><p className="muted mt-2">Set the Staff Registry sheet URL to display your roster here.</p></>}</section>}
-        {tab === "loa" && <section className="panel content-panel"><CalendarDays size={26} className="muted mb-3"/><h2>Coming soon</h2></section>}
+        {tab === "registry" && <section className="panel content-panel">{sheetUrl ? <><a className="text-link" href={sheetUrl} target="_blank" rel="noreferrer">Open in Google Sheets</a><iframe className="sheet" title="Staff Registry Google Sheet" src={sheetUrl}/></> : demo ? <>
+          <div className="feature-heading"><span className="feature-icon"><Users size={19}/></span><div><p className="eyebrow">STAFF DIRECTORY · DEMO</p><h2>Authorized staff</h2><p className="muted">A preview of the roster layout. Connect the staff sheet to show your live team.</p></div></div>
+          <div className="registry-list">{[["DM", "Demo Moderator", "Moderator", "Operations"], ["DS", "Demo Supervisor", "Senior moderator", "Community"], ["DA", "Demo Administrator", "Administrator", "Platform"]].map(([initials, name, role, team]) => <div className="registry-row" key={name}><span className="registry-avatar">{initials}</span><span><strong>{name}</strong><small>{team}</small></span><span className="registry-role">{role}</span><span className="registry-status"><i className="status-dot healthy"/>Active</span></div>)}</div>
+          </> : <div className="feature-empty"><span className="feature-icon"><FileSpreadsheet size={20}/></span><p className="eyebrow">STAFF DIRECTORY</p><h2>Connect your staff roster</h2><p className="muted">The registry will show authorized staff, their roles, and team details once the staff sheet is configured.</p></div>}</section>}
+        {tab === "loa" && <section className="panel content-panel feature-empty loa-empty"><span className="feature-icon"><CalendarDays size={20}/></span><p className="eyebrow">STAFF TOOLS</p><h2>Leave requests, in one place</h2><p className="muted">A simple workflow for submitting time away, reviewing requests, and keeping the team roster up to date is on the way.</p>{process.env.NEXT_PUBLIC_DISCORD_INVITE_URL ? <a className="button" href={process.env.NEXT_PUBLIC_DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer"><Bell size={15}/>Follow updates in Discord</a> : <button className="button" disabled><Bell size={15}/>Coming soon</button>}</section>}
       </div>
-    {selectedServer && <ServerDetails server={selectedServer} game={games.find(item => item.id === selectedServer.gameId)} onClose={() => setSelectedServer(null)} onCopy={copy} copied={copiedId === selectedServer.id}/>}
     {action && <ActionDialog action={action} games={games} servers={servers} totalPlayers={totalPlayers} onClose={() => setAction(null)} onSuccess={completeAction}/>}
   </>;
 }
@@ -387,16 +401,32 @@ function ActionDialog({ action, games, servers, totalPlayers, onClose, onSuccess
   </dialog>;
 }
 
-function ServerDetails({ server, game, onClose, onCopy, copied }) {
-  const ref = useRef(null);
-  useEffect(() => { ref.current?.showModal(); }, []);
-  return <dialog ref={ref} className="server-drawer" aria-labelledby="server-drawer-title" onCancel={event => { event.preventDefault(); onClose(); }}>
-    <div className="drawer-heading"><div><p className="eyebrow">SERVER INSTANCE</p><h2 id="server-drawer-title">{game?.name ?? "Server details"}</h2></div><button className="icon-button" aria-label="Close server details" onClick={onClose}><X size={19}/></button></div>
-    <code className="drawer-server-id">{server.id}</code>
-    <div className="drawer-metrics"><div><span>Players</span><strong>{server.players} / {server.capacity}</strong></div><div><span>Ping</span><strong>{Number.isFinite(server.pingMs) ? `${server.pingMs} ms` : "Unavailable"}</strong></div><div><span>Uptime</span><strong>{duration(server.uptimeSeconds)}</strong></div></div>
-    <p className="drawer-note">The connected player roster and server region aren’t included in the current overview API response.</p>
-    <div className="flex flex-wrap justify-end gap-2 mt-5"><button className="button" onClick={() => onCopy(server.id)}>{copied ? <Check size={14}/> : <Clipboard size={14}/ >}{copied ? "Copied" : "Copy server ID"}</button><button className="button" onClick={onClose}>Close</button></div>
-  </dialog>;
+function ServerDetailPage({ server, game, loading, error, onBack, onCopy, copied, onAction, onAnnounce }) {
+  const [events, setEvents] = useState(null);
+  const [activityError, setActivityError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    api.audit(controller.signal).then(entries => {
+      if (!controller.signal.aborted) setEvents(entries.filter(entry => entry.target?.serverId === server?.id).slice(0, 8));
+    }).catch(failure => {
+      if (!controller.signal.aborted) setActivityError(failure.message);
+    });
+    return () => controller.abort();
+  }, [server?.id]);
+  if (loading) return <section className="panel content-panel server-detail-loading" role="status"><span className="feature-icon"><Server size={20}/></span><h2>Loading server details…</h2><div className="stat-skeleton"><i/><i/></div></section>;
+  if (!server) return <section className="panel content-panel feature-empty"><span className="feature-icon"><Server size={20}/></span><p className="eyebrow">SERVER INSTANCE</p><h2>{error ? "Couldn’t load this server" : "Server is no longer active"}</h2><p className="muted">{error || "It may have shut down or the server ID may be incorrect. Refresh the overview to see the current instances."}</p><div className="flex flex-wrap justify-center gap-2 mt-4"><button className="button" onClick={onBack}>Back to servers</button></div></section>;
+
+  const occupancy = server.capacity > 0 ? Math.round(server.players / server.capacity * 100) : 0;
+  const pingState = !Number.isFinite(server.pingMs) ? "Unavailable" : server.pingMs <= 100 ? "Healthy" : server.pingMs <= 200 ? "Elevated" : "Poor";
+  const capacityState = occupancy >= 90 ? "Near capacity" : occupancy >= 75 ? "Busy" : "Normal";
+  const instanceHealthy = pingState === "Healthy" && capacityState !== "Near capacity";
+  return <div className="server-detail-page">
+    <div className="detail-actions"><button className="button" onClick={onBack}>← Back to servers</button><div className="flex flex-wrap gap-2"><button className="button" onClick={onAnnounce}><Megaphone size={15}/>Announce</button><button className="button" onClick={() => onAction("restart")}><RotateCcw size={15}/>Restart</button><button className="button danger" onClick={() => onAction("shutdown")}><Power size={15}/>Shut down</button></div></div>
+    <section className="panel detail-hero"><div className="detail-hero-heading"><div><p className="eyebrow">{game?.name ?? "SERVER INSTANCE"}</p><h2>{game ? "Live instance" : "Server details"}</h2></div><span className={`health-pill${instanceHealthy ? " healthy" : " attention"}`}><i className={`status-dot${instanceHealthy ? " healthy" : ""}`}/>{pingState === "Unavailable" ? "Health unknown" : instanceHealthy ? "Healthy" : "Needs attention"}</span></div><div className="detail-id-row"><code>{server.id}</code><button className="button compact" onClick={() => onCopy(server.id)}>{copied ? <Check size={14}/> : <Clipboard size={14}/ >}{copied ? "Copied" : "Copy ID"}</button></div></section>
+    <div className="detail-metric-grid"><section className="panel detail-metric"><span>Players</span><strong>{server.players} <small>/ {server.capacity}</small></strong><div className="detail-progress"><i className={occupancy >= 90 ? "critical" : occupancy >= 75 ? "warning" : ""} style={{ width: `${Math.min(100, occupancy)}%` }}/></div><small>{occupancy}% occupied · {capacityState}</small></section><section className="panel detail-metric"><span>Ping</span><strong>{Number.isFinite(server.pingMs) ? `${server.pingMs} ms` : "—"}</strong><small>{pingState} · thresholds: 100 / 200 ms</small></section><section className="panel detail-metric"><span>Uptime</span><strong>{duration(server.uptimeSeconds)}</strong><small>Since this instance started</small></section></div>
+    <section className="panel detail-activity"><div className="section-head"><div><h2>Recent server activity</h2><p>Recorded operations for this instance</p></div><a className="button compact" href={`/audit-log?serverId=${encodeURIComponent(server.id)}`}>Open Audit Log</a></div>{activityError ? <p className="muted px-5 pb-5" role="alert">Activity could not be loaded: {activityError}</p> : events === null ? <p className="muted px-5 pb-5" role="status">Loading activity…</p> : events.length ? <div className="server-event-list">{events.map(entry => <div className="server-event" key={entry.id}><span className={`audit-action audit-action-${entry.action === "shutdown" ? "shutdown" : entry.action === "restart" ? "restart" : entry.action === "announce" ? "announcement" : "neutral"}`}>{auditLabels[entry.action] ?? entry.action}</span><span className="server-event-details">{entry.details || "No details recorded"}<small>{entry.actor?.displayName || "Staff action"}</small></span><time title={new Date(entry.createdAt).toLocaleString("en-GB")}>{Number.isFinite(Date.parse(entry.createdAt)) && typeof window !== "undefined" ? ageText(Date.parse(entry.createdAt), Date.now()) : "—"}</time></div>)}</div> : <div className="detail-empty"><Activity size={17}/><span>No recorded actions for this instance.</span></div>}</section>
+    <p className="detail-data-note">This API currently provides live instance metrics and recorded staff actions. It does not include the player roster, server region, or historical health samples.</p>
+  </div>;
 }
 
 function ServerRowActions({ server, onAction }) {
@@ -445,11 +475,11 @@ function staffHue(name = "") {
   return [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
 }
 
-function AuditLog({ games, clockNow, onOpenTarget }) {
+function AuditLog({ games, clockNow, initialQuery = "", onOpenTarget }) {
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [actionFilter, setActionFilter] = useState("all");
   const [outcomeFilter, setOutcomeFilter] = useState("all");
   const [staffFilter, setStaffFilter] = useState("all");
@@ -504,9 +534,10 @@ function AuditLog({ games, clockNow, onOpenTarget }) {
 
   return <section className="panel">
     <div className="section-head audit-heading">
-      <div><h2>Command history</h2><p><strong className="audit-count">{visibleEntries.length} {visibleEntries.length === 1 ? "entry" : "entries"}</strong><span>{demo ? " · Sample entries reset when you reload the page." : " · Commands are recorded by the staff backend."}</span></p></div>
+      <div><h2>Command history</h2><p><strong className="audit-count">{entries === null ? "Loading entries…" : `${visibleEntries.length} ${visibleEntries.length === 1 ? "entry" : "entries"}`}</strong></p></div>
       <div className="audit-heading-actions"><span className="last-updated" role="status">{entries === null ? "Updating…" : relativeAge(lastAuditUpdate, clockNow)}</span><button className="button" disabled={entries === null} onClick={refreshLog}><RefreshCw size={16} className={entries === null ? "animate-spin" : ""}/>Refresh<kbd>R</kbd></button><button className="button" disabled={!visibleEntries.length} onClick={exportCsv}><Download size={15}/>Export CSV</button></div>
     </div>
+    <div className="audit-note" role="note"><Clock size={14}/>{demo ? "Sample entries reset when you reload the page." : "Commands are recorded by the staff backend."}</div>
     <div className="audit-toolbar"><div className="audit-search"><Search size={15}/><input ref={auditSearchRef} aria-label="Search audit log" placeholder="Search staff, target, or details" value={query} onChange={event => setQuery(event.target.value)}/><kbd>/</kbd>{query && <button type="button" className="search-clear" aria-label="Clear audit search" title="Clear search" onClick={() => setQuery("")}><X size={14}/></button>}</div><select aria-label="Filter audit actions" value={actionFilter} onChange={event => setActionFilter(event.target.value)}><option value="all">All actions</option><option value="announcement">Announcements</option><option value="server">Server control</option><option value="moderation">Moderation</option></select><select aria-label="Filter audit outcomes" value={outcomeFilter} onChange={event => setOutcomeFilter(event.target.value)}><option value="all">All outcomes</option><option value="succeeded">Succeeded</option><option value="failed">Failed</option></select><select aria-label="Filter by staff member" value={staffFilter} onChange={event => setStaffFilter(event.target.value)}><option value="all">All staff</option>{staffNames.map(name => <option key={name} value={name}>{name}</option>)}</select><label className="audit-date-label">From<input aria-label="Audit start date" type="date" value={dateFrom} onChange={event => setDateFrom(event.target.value)}/></label><label className="audit-date-label">To<input aria-label="Audit end date" type="date" value={dateTo} onChange={event => setDateTo(event.target.value)}/></label><button className="audit-reset" onClick={resetFilters}>Reset filters</button></div>
     {error ? <p className="error mx-4" role="alert">{error}</p> : entries !== null ? (
       <div className="overflow-x-auto">

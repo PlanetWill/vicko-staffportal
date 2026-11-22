@@ -1,5 +1,5 @@
-const base = process.env.NEXT_PUBLIC_PORTAL_API_BASE?.trim().replace(/\/$/, "");
-export const demo = !base;
+const base = "/api/portal";
+export const demo = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
 export const sheetUrl = process.env.NEXT_PUBLIC_STAFF_SHEET_URL;
 const games = [
   ["emergency-usa", "Emergency USA: California", "violet"],
@@ -16,6 +16,9 @@ let servers = [
   ["emergency-london", "5d518fe0-13c9-4898-b28b-235fa6392470", 12, 30, 56, 7560],
   ["patrol-london", "89f96e2c-3373-42ae-993d-bd684d7ee1dd", 8, 50, 92, 38940],
 ].map(([gameId, id, players, capacity, pingMs, uptimeSeconds]) => ({ gameId, id, players, capacity, pingMs, uptimeSeconds }));
+export function getDemoOverview() {
+  return { games, servers };
+}
 const users = [
   {
     id: "100001", username: "DemoBuilder", displayName: "Demo Builder", presence: "in_game",

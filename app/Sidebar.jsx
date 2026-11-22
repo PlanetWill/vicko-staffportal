@@ -3,6 +3,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, ListChecks, Search, Server, Users, MessageCircle } from "lucide-react";
+import SignOutButton from "./SignOutButton";
+
+const discordInviteUrl = process.env.NEXT_PUBLIC_DISCORD_INVITE_URL;
 
 const navigation = [
   { heading: "REMOTE MANAGEMENT", items: [["servers", "Servers", Server], ["players", "Player lookup", Search], ["audit", "Audit Log", ListChecks]] },
@@ -11,7 +14,7 @@ const navigation = [
 
 const paths = { servers: "/servers", players: "/players", audit: "/audit-log", registry: "/staff", loa: "/leaves" };
 
-export default function Sidebar({ demo }) {
+export default function Sidebar({ demo, user }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   return <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
@@ -31,8 +34,8 @@ export default function Sidebar({ demo }) {
       </section>)}
     </nav>
     <div className="sidebar-bottom">
-      <a className="discord-link" href="https://discord.com" target="_blank" rel="noreferrer" title={collapsed ? "Join our Discord" : undefined}><MessageCircle size={16}/><span>Join our Discord</span><span className="external-mark">↗</span></a>
-      <div className="sidebar-footer" title={demo ? "Demo staff · Preview account" : "Staff workspace · API configured"}><span className="account-avatar">V</span><span className="account-copy"><strong>{demo ? "Demo staff" : "Staff workspace"}</strong><small>{demo ? "Preview account" : "API configured"}</small></span></div>
+      {discordInviteUrl && <a className="discord-link" href={discordInviteUrl} target="_blank" rel="noopener noreferrer" title={collapsed ? "Join our Discord" : undefined}><MessageCircle size={16}/><span>Join our Discord</span><span className="external-mark">↗</span></a>}
+      <div className="sidebar-footer" title={`${user?.name ?? "Staff member"} · Discord staff account`}><span className="account-avatar">{(user?.name ?? "S").slice(0, 1).toUpperCase()}</span><span className="account-copy"><strong>{user?.name ?? "Staff member"}</strong><small>{demo ? `${user?.discordRoleName ?? "Authorized role"} · Demo data` : user?.discordRoleName ?? "Authorized role"}</small></span><SignOutButton/></div>
     </div>
   </aside>;
 }
