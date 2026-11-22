@@ -1,5 +1,6 @@
 const base = "/api/portal";
-export const demo = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true";
+export const demo = process.env.NEXT_PUBLIC_PORTAL_DEMO_MODE === "true"; // Temporarily allow demo data in production.
+// Previous production guard: process.env.NODE_ENV !== "production" &&
 export const sheetUrl = process.env.NEXT_PUBLIC_STAFF_SHEET_URL;
 const games = [
   ["emergency-usa", "Emergency USA: California", "violet"],
